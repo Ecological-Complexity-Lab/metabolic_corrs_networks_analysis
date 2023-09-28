@@ -242,7 +242,7 @@ shuffle networks- null hypothesis
 #pos and neg together:
 
 #creating the shuffled networks- use the igraphs with singletons! 
-
+set.seed(12)
 shuffle_fun <- function(igraph){
   g1=rewire(igraph, with = keeping_degseq(niter = ecount(igraph)*10))
   E(g1)$weight <- sample(E(igraph)$weight,replace = FALSE)
