@@ -1,0 +1,234 @@
+library(dplyr)
+library(tidyverse)
+library(readxl)
+
+df_filtered_RT<-read.csv("585_pos_for_consolidation.csv", header=TRUE)
+df_filtered_RT <- df_filtered_RT[order(df_filtered_RT$RT_mean),]
+
+
+df_subset <- df_filtered_RT[between(df_filtered_RT$RT_mean, 0, 17),] # here, one can determine the RT window for testing purpose
+RT_data <- df_subset %>% select(cluster, RT_mean)
+sum_data <- data.frame(rowSums(df_subset[,17:214])) # columns with metabolite intensity
+sum_data <- cbind(df_subset$cluster, sum_data)
+colnames(sum_data) <- c("cluster", "RowSum")
+RT_data <- inner_join(RT_data, sum_data, by = "cluster")
+
+compound_groups <- data.frame(NULL)
+
+
+#################this part will take approximately 40-60 minutes with pre-filtered data
+i <- 1
+w <- 1
+RTdeviation <- 0.1 #adjust based on quality of your runs
+similarity_threshold <- 0.9
+met_diff=c(0,1,2,3,21.98,15.76, 7.33,19.98, 41.03, 17.033,31.033,8.52,11.99,9.52,37.96,18.01)
+dif_div <- 0.05
+#rm(compound_tmp_corr_matrix)
+#nrow(df_subset)
+while(i <= nrow(df_subset)){
+  compound_tmp <- as.character(df_subset$cluster[i]) #the name of the compound i
+  compound_tmp_RT <- df_subset$RT_mean[i] #RT of the compound i
+  RT_left_range <- compound_tmp_RT - RTdeviation
+  RT_right_range <- compound_tmp_RT + RTdeviation
+  
+  compound_tmp_range <- df_subset[between(df_subset$RT_mean, RT_left_range, RT_right_range),] #compound close in RT to compound i
+
+  compound_tmp_range_2 <- df_subset[i,]#this will be the group that matches in the RT and mz
+  
+      for (met_2 in 1:nrow(compound_tmp_range)){
+        compound_tmp_2 <- as.character(compound_tmp_range$cluster[met_2])#the name of a metabolite from the group 
+        if (compound_tmp != compound_tmp_2){
+          diff_meti <- abs(df_subset$m.z[i]-compound_tmp_range$m.z[met_2])
+          border_up <- diff_meti+dif_div
+          border_down <- diff_meti-dif_div
+          for (add in met_diff){
+            if ((add<border_up & add>border_down)|(add+1 <border_up & add+1 >border_down)| (add-1 <border_up & add-1 >border_down)) {
+              compound_tmp_range_2 <- rbind(compound_tmp_range_2,compound_tmp_range[met_2,])
+              break
+            }}
+    }}#end met
+  
+  rownames(compound_tmp_range_2) <- compound_tmp_range_2$cluster 
+  
+  compound_tmp_4corr_matrix <- compound_tmp_range_2[,17:214] # specify columns with metabolite intensity
+  compound_tmp_4corr_matrix <- t(compound_tmp_4corr_matrix)
+  
+  compound_tmp_corr_matrix <- cor(compound_tmp_4corr_matrix) #matrix of correlation between metabolite i and metabolites in similar RT
+  compound_tmp_corr_matrix <- data.frame(compound_tmp_corr_matrix)
+  
+  compound_tmp_corr_matrix <- cbind(rownames(compound_tmp_corr_matrix), data.frame(compound_tmp_corr_matrix, row.names = NULL))
+  
+  colnames(compound_tmp_corr_matrix)[1] <- "Node1"
+  cor_matrix_long <- gather(compound_tmp_corr_matrix, key = "Node2", value = "Similarity", 2:ncol(compound_tmp_corr_matrix))
+  
+  compound_tmp_correlation_values <- cor_matrix_long[cor_matrix_long$Node1 == compound_tmp,]
+  compound_tmp_correlation_values <- compound_tmp_correlation_values %>% filter(Similarity > similarity_threshold) #take only the matbolites that are correlated with compound i (higher than threshold)
+  compound_tmp_correlation_values <- compound_tmp_correlation_values[!compound_tmp_correlation_values$Node1 == compound_tmp_correlation_values$Node2,]
+  if(nrow(compound_tmp_correlation_values) > 0){ #if there are matches
+    
+    compound_tmp_correlation_values <- inner_join(compound_tmp_correlation_values, RT_data, by = c("Node1" = "cluster"))
+    compound_tmp_correlation_values <- inner_join(compound_tmp_correlation_values, RT_data, by = c('Node2' = 'cluster'))
+    
+    compound_tmp_correlation_values$DeltaRT <- abs(compound_tmp_correlation_values$RT_mean.x-compound_tmp_correlation_values$RT_mean.y)
+    if(compound_tmp_correlation_values$RowSum.x[1] > max(compound_tmp_correlation_values$RowSum.y)){
+      compound_most_abundant <- compound_tmp_correlation_values$Node1[1]
+    }else{
+      compound_most_abundant <- compound_tmp_correlation_values[max(compound_tmp_correlation_values$RowSum.y) == compound_tmp_correlation_values$RowSum.y,]$Node2
+    }
+    compound_list_group <- as.vector(c(compound_tmp_correlation_values$Node1, compound_tmp_correlation_values$Node2))
+    compound_list_group <- unique(compound_list_group)
+    
+    group_nr <- w
+    compound_groups_tmp <- data.frame(cbind(compound_list_group, group_nr, compound_most_abundant))
+    compound_groups <- rbind(compound_groups, compound_groups_tmp)
+    i <- i+1
+    w <- w+1
+  }else{ #did not got correlated with other compound at similar RT- I choose to still keep them since the filtering stage was stringent
+    
+    group_nr <- w
+    compound_list_group <- compound_tmp
+    compound_most_abundant <- compound_list_group
+    add_lonley_boys <- data.frame(cbind(compound_list_group, group_nr, compound_most_abundant))
+    compound_groups <- rbind(compound_groups, add_lonley_boys)
+    i <- i+1
+    w <- w+1
+    
+  }
+  print(paste((i/nrow(df_subset)*100), "%", sep = ""))
+}
+
+#write.table(compound_groups, "compound_groups_m9_0.85.txt", sep = "\t")
+
+representative_compounds <- as.character(unique(compound_groups$compound_most_abundant))
+representative_compounds <- data.frame(representative_compounds)
+colnames(representative_compounds) <- "cluster"
+#grep("Cluster_31481", representative_compounds)
+
+#df_real_compounds <- inner_join(representative_compounds, df_filtered_RT, by = "Peak.ID")
+
+#df_real_compounds <- inner_join(df_real_compounds, df_RT_mass, by = "Peak.ID")
+
+#write.table(df_real_compounds, "Unique_compounds.txt", sep = "\t")
+
+#annotation <- read.delim("annotation.txt")
+
+#unique_annotation <- left_join(df_real_compounds, annotation, by = "Peak.ID")
+
+#write.table(unique_annotation, "Unique_compounds_annotated_Yeast_oldDF.txt", sep = "\t")
+
+##################################################################
+###MERGE GROUPED COMPOUNDS WITH THEIR MASSES AND INTENSITIES######
+##################################################################
+colnames(compound_groups)[1] <- "cluster"
+df_to_export <- dplyr::inner_join(compound_groups, df_subset, by = "cluster")
+write.table(df_to_export, "martin_Groupped_features_585_1_0.9_0.1_keep_lon.txt", sep = "\t")
+###########################################################################
+###########################2nd round of run################################
+###########################################################################
+
+df_2nd_round <- dplyr::inner_join(representative_compounds, df_subset, by = "cluster")
+compound_groups <- data.frame(NULL)
+
+i <- 1
+w <- 1
+RTdeviation <- 0.1
+similarity_threshold <- 0.9
+met_diff=c(0,1,2,3,21.98,15.76, 7.33,19.98, 41.03, 17.033,31.033,8.52,11.99,9.52,37.96,18.01)
+dif_div <- 0.05
+#rm(compound_tmp_corr_matrix)
+#nrow(df_subset)
+while(i <= nrow(df_2nd_round)){
+  compound_tmp <- as.character(df_2nd_round$cluster[i])
+  compound_tmp_RT <- df_2nd_round$RT_mean[i]
+  RT_left_range <- compound_tmp_RT - RTdeviation
+  RT_right_range <- compound_tmp_RT + RTdeviation
+  
+  compound_tmp_range <- df_subset[between(df_subset$RT_mean, RT_left_range, RT_right_range),]
+  #rownames(compound_tmp_range) <- compound_tmp_range$cluster
+  
+  compound_tmp_range_2 <- df_2nd_round[i,]#this will be the group that matches in the RT and mz
+  
+  for (met_2 in 1:nrow(compound_tmp_range)){
+    compound_tmp_2 <- as.character(compound_tmp_range$cluster[met_2])#the name of a metabolite from the group 
+    if (compound_tmp != compound_tmp_2){
+      diff_meti <- abs(df_2nd_round$m.z[i]-compound_tmp_range$m.z[met_2])
+      border_up <- diff_meti+dif_div
+      border_down <- diff_meti-dif_div
+      for (add in met_diff){
+        if ((add<border_up & add>border_down)|(add+1 <border_up & add+1 >border_down)| (add-1 <border_up & add-1 >border_down)) {
+          compound_tmp_range_2 <- rbind(compound_tmp_range_2,compound_tmp_range[met_2,])
+          break
+        }}
+    }}#end met
+  
+  rownames(compound_tmp_range_2) <- compound_tmp_range_2$cluster 
+  
+  
+  compound_tmp_4corr_matrix <- compound_tmp_range_2[,17:214] # specify columns with metabolite intensity
+  compound_tmp_4corr_matrix <- t(compound_tmp_4corr_matrix)
+  
+  compound_tmp_corr_matrix <- cor(compound_tmp_4corr_matrix)
+  compound_tmp_corr_matrix <- data.frame(compound_tmp_corr_matrix)
+  
+  compound_tmp_corr_matrix <- cbind(rownames(compound_tmp_corr_matrix), data.frame(compound_tmp_corr_matrix, row.names = NULL))
+  
+  colnames(compound_tmp_corr_matrix)[1] <- "Node1"
+  compound_tmp_corr_matrix$Node1 <- as.character(compound_tmp_corr_matrix$Node1)
+  cor_matrix_long <- gather(compound_tmp_corr_matrix, key = "Node2", value = "Similarity", 2:ncol(compound_tmp_corr_matrix))
+  
+  compound_tmp_correlation_values <- cor_matrix_long[cor_matrix_long$Node1 == compound_tmp,]
+  compound_tmp_correlation_values <- compound_tmp_correlation_values %>% filter(Similarity > similarity_threshold)
+  compound_tmp_correlation_values <- compound_tmp_correlation_values[!compound_tmp_correlation_values$Node1 == compound_tmp_correlation_values$Node2,]
+  if(nrow(compound_tmp_correlation_values) > 0){
+    
+    compound_tmp_correlation_values <- inner_join(compound_tmp_correlation_values, RT_data, by = c("Node1" = "cluster"))
+    compound_tmp_correlation_values <- inner_join(compound_tmp_correlation_values, RT_data, by = c('Node2' = 'cluster'))
+    
+    compound_tmp_correlation_values$DeltaRT <- abs(compound_tmp_correlation_values$RT_mean.x-compound_tmp_correlation_values$RT_mean.y)
+    if(compound_tmp_correlation_values$RowSum.x[1] > max(compound_tmp_correlation_values$RowSum.y)){
+      compound_most_abundant <- compound_tmp_correlation_values$Node1[1]
+    }else{
+      compound_most_abundant <- compound_tmp_correlation_values[max(compound_tmp_correlation_values$RowSum.y) == compound_tmp_correlation_values$RowSum.y,]$Node2
+    }
+    compound_list_group <- as.vector(c(compound_tmp_correlation_values$Node1, compound_tmp_correlation_values$Node2))
+    compound_list_group <- unique(compound_list_group)
+    
+    
+    group_nr <- w
+    compound_groups_tmp <- data.frame(cbind(compound_list_group, group_nr, compound_most_abundant))
+    compound_groups <- rbind(compound_groups, compound_groups_tmp)
+    i <- i+1
+    w <- w+1
+  }else{
+    group_nr <- w
+    compound_list_group <- compound_tmp
+    compound_most_abundant <- compound_list_group
+    add_lonley_boys <- data.frame(cbind(compound_list_group, group_nr, compound_most_abundant))
+    compound_groups <- rbind(compound_groups, add_lonley_boys)
+    i <- i+1
+    w <- w+1
+    
+  }
+  print(paste((i/nrow(df_2nd_round)*100), "%", sep = ""))
+}
+
+
+write.table(compound_groups, "martin_compound_groups_rnd2_585_1_0.9_0.1_keep_lon.txt", sep = "\t") ########### I think this is the end
+
+colnames(compound_groups)[1] <- "cluster"
+df_to_export <- dplyr::inner_join(compound_groups, df_subset, by = "cluster")
+
+write.table(df_to_export, "martin_Groupped_features_rnd2_585_1_0.9_0.1_keep_lon.txt", sep = "\t")
+
+representative_compounds <- as.character(unique(compound_groups$compound_most_abundant))
+representative_compounds <- data.frame(representative_compounds)
+colnames(representative_compounds) <- "cluster"
+
+df_real_compounds <- inner_join(representative_compounds, df_filtered_RT, by = "cluster")
+
+#df_real_compounds <- inner_join(df_real_compounds, df_RT_mass, by = "Peak.ID")
+
+write.csv(df_real_compounds, "martin_Unique_compounds_585_1_0.9_0.1_keep_lon.csv")
+
+
+
