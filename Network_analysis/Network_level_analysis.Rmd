@@ -1,0 +1,361 @@
+---
+title: "Network_level_analysis"
+output: html_notebook
+---
+
+networks with singletons
+
+```{r}
+
+WT_positive_p_igraph_df_s <- readRDS("igraphs/WT_positive_p_igraph_df_s_PCLRC.RData")
+evo_positive_p_igraph_df_s <- readRDS("igraphs/evo_positive_p_igraph_df_s_PCLRC.RData")
+unevo_positive_p_igraph_df_s <- readRDS("igraphs/unevo_positive_p_igraph_df_s_PCLRC.RData")
+evoWT_positive_p_igraph_df_s <- readRDS("igraphs/evoWT_positive_p_igraph_df_s_PCLRC.RData")
+mut_positive_p_igraph_df_s <- readRDS("igraphs/mut_positive_p_igraph_df_s_PCLRC.RData")
+
+WT_negative_p_igraph_df_s <- readRDS("igraphs/WT_negative_p_igraph_df_s_PCLRC.RData")
+evo_negative_p_igraph_df_s <- readRDS("igraphs/evo_negative_p_igraph_df_s_PCLRC.RData")
+unevo_negative_p_igraph_df_s <- readRDS("igraphs/unevo_negative_p_igraph_df_s_PCLRC.RData")
+evoWT_negative_p_igraph_df_s <- readRDS("igraphs/evoWT_negative_p_igraph_df_s_PCLRC.RData")
+mut_negative_p_igraph_df_s <- readRDS("igraphs/mut_negative_p_igraph_df_s_PCLRC.RData")
+
+
+```
+
+networks without singletons
+
+```{r}
+common_WT_pos <- read.csv("common/common_WT_pos_PCLRC.csv",row.names = 1)
+common_WT_neg <- read.csv("common/common_WT_neg_PCLRC.csv",row.names = 1)
+
+common_evoWT_pos <- read.csv("common/common_evoWT_pos_PCLRC.csv",row.names = 1)
+common_evoWT_neg <- read.csv("common/common_evoWT_neg_PCLRC.csv",row.names = 1)
+
+common_evo_pos <- read.csv("common/common_evo_pos_PCLRC.csv",row.names = 1)
+common_evo_neg <- read.csv("common/common_evo_neg_PCLRC.csv",row.names = 1)
+
+common_unevo_pos <- read.csv("common/common_unevo_pos_PCLRC.csv",row.names = 1)
+common_unevo_neg <- read.csv("common/common_unevo_neg_PCLRC.csv",row.names = 1)
+
+common_mut_pos <- read.csv("common/common_mut_pos_PCLRC.csv",row.names = 1)
+common_mut_neg <- read.csv("common/common_mut_neg_PCLRC.csv",row.names = 1)
+
+create_igraph <- function(df){
+  before_igraph <- df%>% dplyr::select(from=M1, to=M2, weight=cor)
+  igraph <-igraph::graph.data.frame(before_igraph ,directed=F) }
+
+evo_negative_p_igraph <- create_igraph(common_evo_neg)
+evo_positive_p_igraph <-create_igraph(common_evo_pos) 
+
+unevo_negative_p_igraph <-create_igraph(common_unevo_neg) 
+unevo_positive_p_igraph <-create_igraph(common_unevo_pos) 
+
+WT_negative_p_igraph <- create_igraph(common_WT_neg)
+WT_positive_p_igraph <- create_igraph(common_WT_pos)
+
+evoWT_negative_p_igraph <- create_igraph(common_evoWT_neg)
+evoWT_positive_p_igraph <-create_igraph( common_evoWT_pos) 
+
+mut_negative_p_igraph <- create_igraph(common_mut_neg)
+mut_positive_p_igraph <-create_igraph(common_mut_pos) 
+
+
+```
+
+jaccard similarity between networks' edges
+
+```{r}
+
+#NOTE- added the "sign" column for the combined networks of pos and neg
+common_corrs_with_sign <- function(df1,df2){
+  df1$sign=sign(df1$cor)
+  df2$sign=sign(df2$cor)
+  common_1= bind_rows(list(df1, df2)) %>%
+    group_by(M1, M2, sign) %>%filter(n()>1) %>%
+    summarise(cor= sum(cor)/2)
+  df_2_oppo <- setNames(df2,  c("M2", "M1", "cor"))
+  common_2= bind_rows(list(df1, df_2_oppo)) %>%
+    group_by(M1, M2,sign) %>%filter(n()>1) %>%
+    summarise(cor= sum(cor)/2)
+  df_3=rbind(common_1,common_2)
+    return(df_3)}
+
+
+jaccard_bet_networks <- function(list_df){
+  res <- as.data.frame(matrix(NA, nrow=length(list_df), ncol=length(list_df)))
+  for (set_1_num in c(1:length(list_df))){
+    for (set_2_num in c(1:length(list_df))){
+      if (set_1_num!=set_2_num){
+      common= common_corrs_with_sign(list_df[[set_1_num]],list_df[[set_2_num]])
+      jacc <-nrow(common)/(nrow(list_df[[set_1_num]])+nrow(list_df[[set_2_num]])-nrow(common))
+     res[set_1_num,set_2_num] <- round(jacc, digits=3)
+       }}}
+  return (res)
+}
+
+#neg and pos together
+common_WT_pos_neg=rbind(common_WT_pos,common_WT_neg)
+common_unevo_pos_neg=rbind(common_unevo_pos,common_unevo_neg)
+common_evo_pos_neg=rbind(common_evo_pos,common_evo_neg)
+common_evoWT_pos_neg=rbind(common_evoWT_pos,common_evoWT_neg)
+common_mut_pos_neg=rbind(common_mut_pos,common_mut_neg)
+
+
+Jaccard_networks_pos_and_neg <- jaccard_bet_networks(list(common_WT_pos_neg,common_unevo_pos_neg, common_evo_pos_neg,common_evoWT_pos_neg,common_mut_pos_neg))%>%`colnames<-`(c("WT","unevo","evo","evoWT","mut"))%>%`row.names<-`(c("WT","unevo","evo","evoWT","mut"))
+
+pdf("plots_and_tables/tables/Jaccard_poss_and_neg_PCLRC.pdf")
+p<-tableGrob(Jaccard_networks_pos_and_neg)
+grid.arrange(p)
+dev.off()
+
+combined_column <- function(df){
+  df2=df
+    df2$combined <- paste(df2$M1, df2$M2, sep="_")
+return(df2$combined)
+}
+
+list_bac2 <- list(combined_column(common_WT_pos_neg),combined_column(common_unevo_pos_neg), combined_column(common_evo_pos_neg),combined_column(common_evoWT_pos_neg),combined_column(common_mut_pos_neg))
+
+s <- ggVennDiagram(
+  list_bac2, label_alpha = 0,label="count",label_size = 3,
+  category.names = c("WT","unevo","evo", "evoWT","mut")
+  ) +  ggplot2::scale_fill_gradient(low="lightblue",high = "grey")  
+
+ggsave("plots_and_tables/plots/venn_pos_and_neg_PCLRC.pdf",s)
+
+
+  
+  
+#additional function for networks and not df, results are the same!
+jaccard_bet_networks <- function(list_df){
+  res <- as.data.frame(matrix(NA, nrow=length(list_df), ncol=length(list_df)))
+  for (set_1_num in c(1:length(list_df))){
+    for (set_2_num in c(1:length(list_df))){
+      if (set_1_num!=set_2_num){
+      common=length(E(list_df[[set_1_num]] %s% list_df[[set_2_num]]))
+      jacc <-common/(length(E(list_df[[set_1_num]]))+length(E(list_df[[set_2_num]]))-common)
+     res[set_1_num,set_2_num] <- round(jacc, digits=3)
+       }}}
+  return (res)
+}
+Jaccard_networks_pos2 <- jaccard_bet_networks(list(WT_positive_p_igraph_df_s,unevo_positive_p_igraph_df_s, evo_positive_p_igraph_df_s,evoWT_positive_p_igraph_df_s))%>%`colnames<-`(c("WT","unevo","evo","evoWT"))%>%`row.names<-`(c("WT","unevo","evo","evoWT"))
+
+
+
+
+```
+
+core of correlations in all networks- change? how to analyze with the mutant?
+```{r}
+
+core_between_networks <- function(list_df){
+  n=1
+  while(n+1<=length(list_df)){
+    common= common_corrs(list_df[[n]],list_df[[n+1]])
+    if (nrow(common)!=0){
+    list_df[[n+1]]=common
+    n=n+1
+    }else{
+      break}
+    }
+  print(n)
+  return(common)
+}
+
+
+#no evoWT
+core_networks_pos_no_evoWT <- core_between_networks(list(common_WT_pos,common_unevo_pos, common_evo_pos))
+core_networks_neg_no_evoWT <- core_between_networks(list(common_WT_neg,common_unevo_neg, common_evo_neg))
+
+metabolites_core_pos_no_evoWT <- as.data.frame(unique(unlist(core_networks_pos_no_evoWT[c("M1","M2")], use.names = T)))%>%set_names("met")
+metabolites_core_neg_no_evoWT <- as.data.frame(unique(unlist(core_networks_neg_no_evoWT[c("M1","M2")], use.names = T)))%>%set_names("met")
+
+s <- intersect(metabolites_core_pos_no_evoWT[,1],metabolites_core_neg_no_evoWT[,1])
+
+graph_core_pos <- create_igraph(core_networks_pos_no_evoWT)
+
+degree_core_met_small_graph_no_evoWT <- data.frame(degree(graph_core_pos,v = V(graph_core_pos),mode ="all",loops = FALSE,normalized = T))
+
+degree_core_met_small_graph_no_evoWT <- degree_core_met_small_graph_no_evoWT%>% add_column(row.names(degree_core_met_small_graph_no_evoWT))%>%`colnames<-`(c("degree", "met"))
+
+
+ggplot(degree_core_met_small_graph_no_evoWT, aes(x = degree ,y = after_stat(count))) + 
+  geom_histogram()+labs(x="Degree")
+
+par(mar=rep(0,4))
+plot(graph_core_pos, vertex.size=5,vertex.label=NA )
+
+
+#annotations of the core metabolites
+core_corrs_pos_no_evoWT <- core_networks_pos_no_evoWT %>% left_join(set_tbl_1[,1:2], by=c("M1"="cluster"))%>% left_join(set_tbl_1[,1:2], by=c("M2"="cluster"))
+
+core_corrs_neg_no_evoWT <- core_networks_neg_no_evoWT %>% left_join(set_tbl_1[,1:2], by=c("M1"="cluster"))%>% left_join(set_tbl_1[,1:2], by=c("M2"="cluster"))
+
+metabolites_core_pos_no_evoWT <- metabolites_core_pos_no_evoWT%>% left_join(set_tbl_1[,1:2], by=c("met"="cluster"))
+metabolites_core_neg_no_evoWT <- metabolites_core_neg_no_evoWT%>% left_join(set_tbl_1[,1:2], by=c("met"="cluster"))
+
+degree_core_met_small_graph_no_evoWT <- degree_core_met_small_graph_no_evoWT%>% left_join(set_tbl_1[,1:2], by=c("met"="cluster"))
+
+core_corrs_pos_high_deg <- core_corrs_pos_no_evoWT %>% left_join(degree_core_met_small_graph_no_evoWT, by=c("M1"="met"))%>% left_join(degree_core_met_small_graph_no_evoWT, by=c("M2"="met")) %>% filter(degree.x>=0.1 &degree.y>=0.1)
+
+
+#WT-evoWT
+
+metabolites_core_pos_only_WT_evoWT <- as.data.frame(unique(unlist(core_networks_pos_only_WT_evoWT[c("M1","M2")], use.names = T)))%>%set_names("met")
+metabolites_core_neg_only_WT_evoWT <- as.data.frame(unique(unlist(core_networks_neg_only_WT_evoWT[c("M1","M2")], use.names = T)))%>%set_names("met")
+
+s <- intersect(metabolites_core_pos_only_WT_evoWT[,1],metabolites_core_neg_only_WT_evoWT[,1])
+
+graoh_core_pos <- create_igraph(core_networks_pos_only_WT_evoWT)
+
+degree_core_met_small_graph2 <- data.frame(degree(graoh_core_pos,v = V(graoh_core_pos),mode ="all",loops = FALSE,normalized = T))
+degree_core_met_small_graph2 <- degree_core_met_small_graph2%>% add_column(row.names(degree_core_met_small_graph2))%>%`colnames<-`(c("degree", "met"))
+
+core_corrs_pos_only_WT_evoWT <- core_networks_pos_only_WT_evoWT %>% left_join(set_tbl_1[,1:2], by=c("M1"="cluster"))%>% left_join(set_tbl_1[,1:2], by=c("M2"="cluster"))
+
+core_corrs_neg_only_WT_evoWT <- core_networks_neg_only_WT_evoWT %>% left_join(set_tbl_1[,1:2], by=c("M1"="cluster"))%>% left_join(set_tbl_1[,1:2], by=c("M2"="cluster"))
+
+metabolites_core_pos_only_WT_evoWT <- metabolites_core_pos_only_WT_evoWT%>% left_join(set_tbl_1[,1:2], by=c("met"="cluster"))
+metabolites_core_neg_only_WT_evoWT <- metabolites_core_neg_only_WT_evoWT%>% left_join(set_tbl_1[,1:2], by=c("met"="cluster"))
+
+degree_core_met_small_graph2 <- degree_core_met_small_graph2%>% left_join(set_tbl_1[,1:2], by=c("met"="cluster"))
+
+core_corrs_pos_high_deg <- core_corrs_pos_only_WT_evoWT %>% left_join(degree_core_met_small_graph2, by=c("M1"="met"))%>% left_join(degree_core_met_small_graph2, by=c("M2"="met")) %>% filter(degree.x>=0.1 &degree.y>=0.1)
+
+
+ggplot(degree_core_met_small_graph2, aes(x = degree ,y = after_stat(count))) + 
+  geom_histogram()+labs(x="Degree")
+
+par(mar=rep(0,4))
+plot(graoh_core_pos, vertex.size=5,vertex.label=NA )
+
+
+
+d <- intersect(metabolites_core_pos_only_WT_evoWT,metabolites_core_pos_no_evoWT)
+
+a <- common_corrs(core_corrs_pos_only_WT_evoWT,core_corrs_pos_no_evoWT)%>% left_join(set_tbl_1[,1:2], by=c("M1"="cluster"))%>% left_join(set_tbl_1[,1:2], by=c("M2"="cluster"))
+
+```
+
+shuffle networks- null hypothesis
+```{r}
+#pos and neg together:
+
+#creating the shuffled networks- use the igraphs with singletons! 
+
+shuffle_fun <- function(igraph){
+  g1=rewire(igraph, with = keeping_degseq(niter = ecount(igraph)*10))
+  E(g1)$weight <- sample(E(igraph)$weight,replace = FALSE)
+  return(g1)
+}
+
+WT_pos_and_neg_igraph=WT_positive_p_igraph_df_s %u% WT_negative_p_igraph_df_s
+E(WT_pos_and_neg_igraph)$weight_1[is.na(E(WT_pos_and_neg_igraph)$weight_1)] <- 0
+E(WT_pos_and_neg_igraph)$weight_2[is.na(E(WT_pos_and_neg_igraph)$weight_2)] <- 0
+E(WT_pos_and_neg_igraph)$weight <- E(WT_pos_and_neg_igraph)$weight_1 + E(WT_pos_and_neg_igraph)$weight_2
+
+WT_shuffle_networks_pos <- replicate(1000, shuffle_fun(WT_pos_and_neg_igraph ), simplify = FALSE)
+saveRDS(WT_shuffle_networks_pos, file="shuffeld_nets/WT_shuffle_networks_pos_neg_PCLRC.RData")
+rm(WT_shuffle_networks_pos)
+
+evo_pos_and_neg_igraph=evo_positive_p_igraph_df_s %u% evo_negative_p_igraph_df_s
+E(evo_pos_and_neg_igraph)$weight_1[is.na(E(evo_pos_and_neg_igraph)$weight_1)] <- 0
+E(evo_pos_and_neg_igraph)$weight_2[is.na(E(evo_pos_and_neg_igraph)$weight_2)] <- 0
+E(evo_pos_and_neg_igraph)$weight <- E(evo_pos_and_neg_igraph)$weight_1 + E(evo_pos_and_neg_igraph)$weight_2
+
+evo_shuffle_networks_pos_neg <- replicate(1000, shuffle_fun(evo_pos_and_neg_igraph), simplify = FALSE)
+saveRDS(evo_shuffle_networks_pos_neg, file="shuffeld_nets/evo_shuffle_networks_pos_neg_PCLRC.RData")
+rm(evo_shuffle_networks_pos_neg)
+
+unevo_pos_and_neg_igraph=unevo_positive_p_igraph_df_s %u% unevo_negative_p_igraph_df_s
+E(unevo_pos_and_neg_igraph)$weight_1[is.na(E(unevo_pos_and_neg_igraph)$weight_1)] <- 0
+E(unevo_pos_and_neg_igraph)$weight_2[is.na(E(unevo_pos_and_neg_igraph)$weight_2)] <- 0
+E(unevo_pos_and_neg_igraph)$weight <- E(unevo_pos_and_neg_igraph)$weight_1 + E(unevo_pos_and_neg_igraph)$weight_2
+
+unevo_shuffle_networks_pos_neg <- replicate(1000, shuffle_fun(unevo_pos_and_neg_igraph), simplify = FALSE)
+saveRDS(unevo_shuffle_networks_pos_neg, file="shuffeld_nets/unevo_shuffle_networks_pos_neg_PCLRC.RData")
+rm(unevo_shuffle_networks_pos_neg)
+
+evoWT_pos_and_neg_igraph=evoWT_positive_p_igraph_df_s %u% evoWT_negative_p_igraph_df_s
+E(evoWT_pos_and_neg_igraph)$weight_1[is.na(E(evoWT_pos_and_neg_igraph)$weight_1)] <- 0
+E(evoWT_pos_and_neg_igraph)$weight_2[is.na(E(evoWT_pos_and_neg_igraph)$weight_2)] <- 0
+E(evoWT_pos_and_neg_igraph)$weight <- E(evoWT_pos_and_neg_igraph)$weight_1 + E(evoWT_pos_and_neg_igraph)$weight_2
+
+evoWT_shuffle_networks_pos_neg <- replicate(1000, shuffle_fun(evoWT_pos_and_neg_igraph), simplify = FALSE)
+saveRDS(evoWT_shuffle_networks_pos_neg, file="shuffeld_nets/evoWT_shuffle_networks_pos_neg_PCLRC.RData")
+rm(evoWT_shuffle_networks_pos_neg)
+
+mut_pos_and_neg_igraph=mut_positive_p_igraph_df_s %u% mut_negative_p_igraph_df_s
+E(mut_pos_and_neg_igraph)$weight_1[is.na(E(mut_pos_and_neg_igraph)$weight_1)] <- 0
+E(mut_pos_and_neg_igraph)$weight_2[is.na(E(mut_pos_and_neg_igraph)$weight_2)] <- 0
+E(mut_pos_and_neg_igraph)$weight <- E(mut_pos_and_neg_igraph)$weight_1 + E(mut_pos_and_neg_igraph)$weight_2
+
+mut_shuffle_networks_pos_neg <- replicate(1000, shuffle_fun(mut_pos_and_neg_igraph), simplify = FALSE)
+saveRDS(mut_shuffle_networks_pos_neg, file="shuffeld_nets/mut_shuffle_networks_pos_neg_PCLRC.RData")
+rm(mut_shuffle_networks_pos_neg)
+
+
+```
+
+jaccard similarity between networks' edges- compare to random. First run the file "jaccard" on the HPC
+```{r}
+
+jacc_rnd_pos_and_neg <- read_csv("jacc_rnd_vs_true/Jaccard_rnd_networks_pos_and_neg_PCLRC.csv") # the output of the "jaccard" file that run on the HPC
+
+jacc_rnd_pos_and_neg1 <- aggregate(jacc ~ bact, jacc_rnd_pos_and_neg, paste, collapse = ", ")
+
+z_score_of_jaccard_rnd <- function(jaccard_rnd_df, jaccard_true_df){ #change if you want the z values, p values or plots
+    res <- as.data.frame(matrix(NA, nrow=nrow(jaccard_true_df), ncol=ncol(jaccard_true_df)))
+    plot_list=list()
+    for (couple in c(1:nrow(jaccard_rnd_df))){
+      print(couple)
+      j_rnd_vector <- as.numeric(unlist(strsplit(jaccard_rnd_df[couple,2], ", ")))
+      mean <- mean(j_rnd_vector)
+      print(paste("mean_jacc=",mean))
+      sd <- sd(j_rnd_vector)
+      bact_couple <- unlist(strsplit(jaccard_rnd_df[couple,1], "_"))
+      rep_str = c('1'='WT','2'='unevolved','3'='evolved', '4'='evolved-WT', '5'='mut', 'rnd'='R','true'='T')
+      bact_couple_names <- str_replace_all(jaccard_rnd_df[couple,1], rep_str)    
+      bact_true <- as.numeric(bact_couple[4])
+      print(bact_true)
+      bact_rnd <- as.numeric(bact_couple[2])
+      print(bact_rnd)
+      jacc_true <- jaccard_true_df[bact_true,bact_rnd]
+      print(jacc_true)
+      z_val <- (jacc_true-mean)/sd
+      p_val <-pnorm(z_val, mean = mean, sd = sd, lower.tail = FALSE)
+      res[bact_true,bact_rnd]<- round(p_val, digits=3)
+      d <- as.data.frame(j_rnd_vector)
+      plot <- d%>% ggplot(aes(x=d[,1])) +geom_density( fill="dodgerblue", alpha=0.5)+geom_vline(xintercept=jacc_true, linewidth=1.5, color="red")+xlab(NULL)+ylab(NULL)+ggtitle(bact_couple_names)+theme_classic()+ theme(text = element_text(size = 12))
+
+      plot_list <- append(plot_list,list(plot))
+      
+    }
+    return(plot_list)
+}
+
+
+jacc_pos_vs_neg_results <- z_score_of_jaccard_rnd(jacc_rnd_pos_and_neg1,Jaccard_networks_pos_and_neg)
+
+s <- arrangeGrob(grobs = jacc_pos_vs_neg_results)
+figure <- annotate_figure(s, left = textGrob("Count", rot = 90, vjust = 1, gp = gpar(cex = 1.7)),
+                bottom = textGrob("Jaccard Values", gp = gpar(cex = 1.7)),fig.lab.size=0.5,fig.lab.face = "bold")
+
+ggsave(file="plots_and_tables/plots/jacc_true_vs_rnd_pos_and_neg_PCLRC.pdf", figure, width=15, height=12)
+
+#to see only one of each couple
+
+s <- arrangeGrob(
+  grobs = jacc_pos_vs_neg_results, #to see only one of each couple
+  layout_matrix = rbind(c(NA,1, 2, 3,4),
+                        c(5, NA,6, 7, 8),
+                        c(9, 10, NA, 11,12),
+                        c(13, 14,15,NA,16),
+                        c(17,18,19,20,NA)))
+figure <- annotate_figure(s, left = textGrob("Count\n", rot = 90, vjust = 1, gp = gpar(cex = 1.7)),
+                bottom = textGrob("\nJaccard Values", gp = gpar(cex = 1.7)),fig.lab.size=0.5,fig.lab.face = "bold")
+
+ggsave(file="plots_and_tables/plots/jacc_true_vs_rnd_pos_and_neg_PCLRC_organized.pdf", figure, width=14, height=8)
+
+
+```
