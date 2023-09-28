@@ -255,7 +255,7 @@ E(WT_pos_and_neg_igraph)$weight_2[is.na(E(WT_pos_and_neg_igraph)$weight_2)] <- 0
 E(WT_pos_and_neg_igraph)$weight <- E(WT_pos_and_neg_igraph)$weight_1 + E(WT_pos_and_neg_igraph)$weight_2
 
 WT_shuffle_networks_pos <- replicate(1000, shuffle_fun(WT_pos_and_neg_igraph ), simplify = FALSE)
-saveRDS(WT_shuffle_networks_pos, file="shuffeld_nets/WT_shuffle_networks_pos_neg_PCLRC.RData")
+saveRDS(WT_shuffle_networks_pos, file="shuffled_nets/WT_shuffle_networks_pos_neg_PCLRC.RData")
 rm(WT_shuffle_networks_pos)
 
 evo_pos_and_neg_igraph=evo_positive_p_igraph_df_s %u% evo_negative_p_igraph_df_s
@@ -264,7 +264,7 @@ E(evo_pos_and_neg_igraph)$weight_2[is.na(E(evo_pos_and_neg_igraph)$weight_2)] <-
 E(evo_pos_and_neg_igraph)$weight <- E(evo_pos_and_neg_igraph)$weight_1 + E(evo_pos_and_neg_igraph)$weight_2
 
 evo_shuffle_networks_pos_neg <- replicate(1000, shuffle_fun(evo_pos_and_neg_igraph), simplify = FALSE)
-saveRDS(evo_shuffle_networks_pos_neg, file="shuffeld_nets/evo_shuffle_networks_pos_neg_PCLRC.RData")
+saveRDS(evo_shuffle_networks_pos_neg, file="shuffled_nets/evo_shuffle_networks_pos_neg_PCLRC.RData")
 rm(evo_shuffle_networks_pos_neg)
 
 unevo_pos_and_neg_igraph=unevo_positive_p_igraph_df_s %u% unevo_negative_p_igraph_df_s
@@ -273,7 +273,7 @@ E(unevo_pos_and_neg_igraph)$weight_2[is.na(E(unevo_pos_and_neg_igraph)$weight_2)
 E(unevo_pos_and_neg_igraph)$weight <- E(unevo_pos_and_neg_igraph)$weight_1 + E(unevo_pos_and_neg_igraph)$weight_2
 
 unevo_shuffle_networks_pos_neg <- replicate(1000, shuffle_fun(unevo_pos_and_neg_igraph), simplify = FALSE)
-saveRDS(unevo_shuffle_networks_pos_neg, file="shuffeld_nets/unevo_shuffle_networks_pos_neg_PCLRC.RData")
+saveRDS(unevo_shuffle_networks_pos_neg, file="shuffled_nets/unevo_shuffle_networks_pos_neg_PCLRC.RData")
 rm(unevo_shuffle_networks_pos_neg)
 
 evoWT_pos_and_neg_igraph=evoWT_positive_p_igraph_df_s %u% evoWT_negative_p_igraph_df_s
@@ -282,7 +282,7 @@ E(evoWT_pos_and_neg_igraph)$weight_2[is.na(E(evoWT_pos_and_neg_igraph)$weight_2)
 E(evoWT_pos_and_neg_igraph)$weight <- E(evoWT_pos_and_neg_igraph)$weight_1 + E(evoWT_pos_and_neg_igraph)$weight_2
 
 evoWT_shuffle_networks_pos_neg <- replicate(1000, shuffle_fun(evoWT_pos_and_neg_igraph), simplify = FALSE)
-saveRDS(evoWT_shuffle_networks_pos_neg, file="shuffeld_nets/evoWT_shuffle_networks_pos_neg_PCLRC.RData")
+saveRDS(evoWT_shuffle_networks_pos_neg, file="shuffled_nets/evoWT_shuffle_networks_pos_neg_PCLRC.RData")
 rm(evoWT_shuffle_networks_pos_neg)
 
 mut_pos_and_neg_igraph=mut_positive_p_igraph_df_s %u% mut_negative_p_igraph_df_s
@@ -291,7 +291,7 @@ E(mut_pos_and_neg_igraph)$weight_2[is.na(E(mut_pos_and_neg_igraph)$weight_2)] <-
 E(mut_pos_and_neg_igraph)$weight <- E(mut_pos_and_neg_igraph)$weight_1 + E(mut_pos_and_neg_igraph)$weight_2
 
 mut_shuffle_networks_pos_neg <- replicate(1000, shuffle_fun(mut_pos_and_neg_igraph), simplify = FALSE)
-saveRDS(mut_shuffle_networks_pos_neg, file="shuffeld_nets/mut_shuffle_networks_pos_neg_PCLRC.RData")
+saveRDS(mut_shuffle_networks_pos_neg, file="shuffled_nets/mut_shuffle_networks_pos_neg_PCLRC.RData")
 rm(mut_shuffle_networks_pos_neg)
 
 
