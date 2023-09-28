@@ -56,11 +56,11 @@ print("finished_igraph")
 
 #uploading the random networks
 
-WT_shuffle_networks <- readRDS("WT_shuffle_networks_pos_neg_PCLRC.RData")[1:500]
-evo_shuffle_networks <- readRDS("evo_shuffle_networks_pos_neg_PCLRC.RData")[1:500]
-unevo_shuffle_networks <- readRDS("unevo_shuffle_networks_pos_neg_PCLRC.RData")[1:500]
-evoWT_shuffle_networks <- readRDS("evoWT_shuffle_networks_pos_neg_PCLRC.RData")[1:500]
-mut_shuffle_networks <- readRDS("mut_shuffle_networks_pos_neg_PCLRC.RData")[1:500]
+WT_shuffle_networks <- readRDS("shuffled_nets/WT_shuffle_networks_pos_neg_PCLRC.RData")[1:500]
+evo_shuffle_networks <- readRDS("shuffled_nets/evo_shuffle_networks_pos_neg_PCLRC.RData")[1:500]
+unevo_shuffle_networks <- readRDS("shuffled_nets/unevo_shuffle_networks_pos_neg_PCLRC.RData")[1:500]
+evoWT_shuffle_networks <- readRDS("shuffled_nets/evoWT_shuffle_networks_pos_neg_PCLRC.RData")[1:500]
+mut_shuffle_networks <- readRDS("shuffled_nets/mut_shuffle_networks_pos_neg_PCLRC.RData")[1:500]
 
 print("finished_Rdata")
 
