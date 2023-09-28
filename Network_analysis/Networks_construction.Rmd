@@ -460,3 +460,111 @@ ggsave(filename="plots_and_tables/plots/amount_of_common_corrs_pos_and_neg.pdf",
 
 ```
 
+create igraph of networks without singletons-
+
+```{r}
+create_igraph <- function(df){
+  before_igraph <- df%>% dplyr::select(from=M1, to=M2, weight=cor)
+  igraph <-igraph::graph.data.frame(before_igraph ,directed=F) }
+
+evo_negative_p_igraph <- create_igraph(common_evo_neg)
+evo_positive_p_igraph <-create_igraph(common_evo_pos) 
+
+unevo_negative_p_igraph <-create_igraph(common_unevo_neg) 
+unevo_positive_p_igraph <-create_igraph(common_unevo_pos) 
+
+WT_negative_p_igraph <- create_igraph(common_WT_neg)
+WT_positive_p_igraph <- create_igraph(common_WT_pos)
+
+evoWT_negative_p_igraph <- create_igraph(common_evoWT_neg)
+evoWT_positive_p_igraph <-create_igraph( common_evoWT_pos) 
+
+mut_negative_p_igraph <- create_igraph(common_mut_neg)
+mut_positive_p_igraph <-create_igraph(common_mut_pos) 
+
+amount_of_v_and_e <- 
+data.frame(matrix(c(length(V(WT_positive_p_igraph)),length(E(WT_positive_p_igraph)),round(edge_density(WT_positive_p_igraph),4),length(V(WT_negative_p_igraph)),length(E(WT_negative_p_igraph)),round(edge_density(WT_negative_p_igraph),4),length(V(unevo_positive_p_igraph)),length(E(unevo_positive_p_igraph)),round(edge_density(unevo_positive_p_igraph),4),length(V(unevo_negative_p_igraph)),length(E(unevo_negative_p_igraph)),round(edge_density(unevo_negative_p_igraph),4),length(V(evo_positive_p_igraph)),length(E(evo_positive_p_igraph)),round(edge_density(evo_positive_p_igraph),4),length(V(evo_negative_p_igraph)),length(E(evo_negative_p_igraph)),round(edge_density(evo_negative_p_igraph),4),length(V(evoWT_positive_p_igraph)),length(E(evoWT_positive_p_igraph)),round(edge_density(evoWT_positive_p_igraph),4),length(V(evoWT_negative_p_igraph)),length(E(evoWT_negative_p_igraph)),round(edge_density(evoWT_negative_p_igraph),4),length(V(mut_positive_p_igraph)),length(E(mut_positive_p_igraph)),round(edge_density(mut_positive_p_igraph),4),length(V(mut_negative_p_igraph)),length(E(mut_negative_p_igraph)),round(edge_density(mut_negative_p_igraph),4)
+                    ), ncol=6, byrow = TRUE),row.names = c("WT","unevolved","evolved","evoWT","mut")) %>%`colnames<-`(c("V_pos","E_pos","dens_pos","V_neg","E_neg","dens_neg"))
+
+
+
+pdf("plots_and_tables/tables/amount_V_E_without_single_PCLRC.pdf")
+p<-tableGrob(amount_of_v_and_e)
+grid.arrange(p)
+dev.off()
+
+```
+
+
+create igraph objects of common with singletons
+```{r}
+
+#for networks with singletons:
+
+add_singltons <- function(igraph_common,igraph1,igraph2){
+  re <- intersect(names(V(igraph1)),names(V(igraph2)))
+  print(length(re))
+  rest <- setdiff(re,names(V(igraph_common)))
+  print(length(rest))
+  common_with_single<- add.vertices(igraph_common, length(rest), attr = list(name = rest))
+return(common_with_single)
+}
+evo_negative_p_igraph_df_s <- add_singltons(evo_negative_p_igraph,  evo_positive_p_igraph_1,evo_positive_p_igraph_2 )
+evo_positive_p_igraph_df_s <-add_singltons(evo_positive_p_igraph,evo_positive_p_igraph_1,evo_positive_p_igraph_2)
+
+unevo_negative_p_igraph_df_s <- add_singltons(unevo_negative_p_igraph,unevo_positive_p_igraph_1,unevo_positive_p_igraph_2 )
+unevo_positive_p_igraph_df_s <-add_singltons(unevo_positive_p_igraph, unevo_positive_p_igraph_1,unevo_positive_p_igraph_2)
+
+WT_negative_p_igraph_df_s <- add_singltons(WT_negative_p_igraph,WT_positive_p_igraph_1,WT_positive_p_igraph_2 )
+WT_positive_p_igraph_df_s <-add_singltons(WT_positive_p_igraph, WT_positive_p_igraph_1,WT_positive_p_igraph_2)
+
+evoWT_negative_p_igraph_df_s <- add_singltons(evoWT_negative_p_igraph,evoWT_positive_p_igraph_1,evoWT_positive_p_igraph_2)
+evoWT_positive_p_igraph_df_s <-add_singltons(evoWT_positive_p_igraph, evoWT_positive_p_igraph_1,evoWT_positive_p_igraph_2)
+
+mut_negative_p_igraph_df_s <- add_singltons(mut_negative_p_igraph,mut_positive_p_igraph_1,mut_positive_p_igraph_2)
+mut_positive_p_igraph_df_s <-add_singltons(mut_positive_p_igraph, mut_positive_p_igraph_1,mut_positive_p_igraph_2)
+
+
+amount_of_v_and_e <- 
+data.frame(matrix(c(length(V(WT_positive_p_igraph_df_s)),length(E(WT_positive_p_igraph_df_s)),round(edge_density(WT_positive_p_igraph_df_s),4),length(V(WT_negative_p_igraph_df_s)),length(E(WT_negative_p_igraph_df_s)),round(edge_density(WT_negative_p_igraph_df_s),4),length(V(unevo_positive_p_igraph_df_s)),length(E(unevo_positive_p_igraph_df_s)),round(edge_density(unevo_positive_p_igraph_df_s),4),length(V(unevo_negative_p_igraph_df_s)),length(E(unevo_negative_p_igraph_df_s)),round(edge_density(unevo_negative_p_igraph_df_s),4),length(V(evo_positive_p_igraph_df_s)),length(E(evo_positive_p_igraph_df_s)),round(edge_density(evo_positive_p_igraph_df_s),4),length(V(evo_negative_p_igraph_df_s)),length(E(evo_negative_p_igraph_df_s)),round(edge_density(evo_negative_p_igraph_df_s),4),length(V(evoWT_positive_p_igraph_df_s)),length(E(evoWT_positive_p_igraph_df_s)),round(edge_density(evoWT_positive_p_igraph_df_s),4),length(V(evoWT_negative_p_igraph_df_s)),length(E(evoWT_negative_p_igraph_df_s)),round(edge_density(evoWT_negative_p_igraph_df_s),4),length(V(mut_positive_p_igraph_df_s)),length(E(mut_positive_p_igraph_df_s)),round(edge_density(mut_positive_p_igraph_df_s),4),length(V(mut_negative_p_igraph_df_s)),length(E(mut_negative_p_igraph_df_s)),round(edge_density(mut_negative_p_igraph_df_s),4)), ncol=6, byrow = TRUE),row.names = c("WT","unevolved","evolved","evoWT","mut")) %>%`colnames<-`(c("V_pos","E_pos","dens_pos","V_neg","E_neg","dens_neg"))
+
+pdf("plots_and_tables/tables/amount_V_E_with_single_PCLRC.pdf")
+p<-tableGrob(amount_of_v_and_e)
+grid.arrange(p)
+dev.off()
+
+#saveRDS(WT_positive_p_igraph_df_s,"igraphs/WT_positive_p_igraph_df_s_PCLRC.RData")
+#saveRDS(WT_negative_p_igraph_df_s,"igraphs/WT_negative_p_igraph_df_s_PCLRC.RData")
+
+#saveRDS(unevo_positive_p_igraph_df_s,"igraphs/unevo_positive_p_igraph_df_s_PCLRC.RData")
+#saveRDS(unevo_negative_p_igraph_df_s,"igraphs/unevo_negative_p_igraph_df_s_PCLRC.RData")
+
+#saveRDS(evo_positive_p_igraph_df_s,"igraphs/evo_positive_p_igraph_df_s_PCLRC.RData")
+#saveRDS(evo_negative_p_igraph_df_s,"igraphs/evo_negative_p_igraph_df_s_PCLRC.RData")
+
+#saveRDS(evoWT_positive_p_igraph_df_s,"igraphs/evoWT_positive_p_igraph_df_s_PCLRC.RData")
+#saveRDS(evoWT_negative_p_igraph_df_s,"igraphs/evoWT_negative_p_igraph_df_s_PCLRC.RData")
+
+#saveRDS(mut_positive_p_igraph_df_s,"igraphs/mut_positive_p_igraph_df_s_PCLRC.RData")
+#saveRDS(mut_negative_p_igraph_df_s,"igraphs/mut_negative_p_igraph_df_s_PCLRC.RData")
+
+```
+
+upload igraphs of common- with singletons
+```{r}
+
+WT_positive_p_igraph_df_s <- readRDS("igraphs/WT_positive_p_igraph_df_s_PCLRC.RData")
+evo_positive_p_igraph_df_s <- readRDS("igraphs/evo_positive_p_igraph_df_s_PCLRC.RData")
+unevo_positive_p_igraph_df_s <- readRDS("igraphs/unevo_positive_p_igraph_df_s_PCLRC.RData")
+evoWT_positive_p_igraph_df_s <- readRDS("igraphs/evoWT_positive_p_igraph_df_s_PCLRC.RData")
+mut_positive_p_igraph_df_s <- readRDS("igraphs/mut_positive_p_igraph_df_s_PCLRC.RData")
+
+WT_negative_p_igraph_df_s <- readRDS("igraphs/WT_negative_p_igraph_df_s_PCLRC.RData")
+evo_negative_p_igraph_df_s <- readRDS("igraphs/evo_negative_p_igraph_df_s_PCLRC.RData")
+unevo_negative_p_igraph_df_s <- readRDS("igraphs/unevo_negative_p_igraph_df_s_PCLRC.RData")
+evoWT_negative_p_igraph_df_s <- readRDS("igraphs/evoWT_negative_p_igraph_df_s_PCLRC.RData")
+mut_negative_p_igraph_df_s <- readRDS("igraphs/mut_negative_p_igraph_df_s_PCLRC.RData")
+
+
+```
+
