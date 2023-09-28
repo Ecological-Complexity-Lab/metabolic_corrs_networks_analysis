@@ -1,0 +1,462 @@
+---
+title: "Networks_construction"
+output: html_notebook
+---
+
+1.importing the data after filtering and grouping, adjusting it 
+2.transpose each df and turning it into a matrix in order to adjust it and later use rcorr() 
+3. log transform the data
+
+
+```{r}
+
+
+set_tbl_1<-read_excel("unique_19_each_585_new.xlsx", sheet="585_1")
+set_tbl_1[,6:100][set_tbl_1[,6:100 ]==0]<- NA
+evo_set_tbl_1 <-set_tbl_1[,6:24] %>%add_column("cluster"=set_tbl_1$cluster, .before=T)
+evoWT_set_tbl_1<-set_tbl_1[,25:43]%>%add_column("cluster"=set_tbl_1$cluster, .before=T)
+mut_set_tbl_1<-set_tbl_1[,44:62]%>%add_column("cluster"=set_tbl_1$cluster, .before=T)
+unevo_set_tbl_1<-set_tbl_1[,63:81]%>%add_column("cluster"=set_tbl_1$cluster, .before=T)
+WT_set_tbl_1<-set_tbl_1[,82:100] %>%add_column("cluster"=set_tbl_1$cluster, .before=T)
+
+#585_2-
+set_tbl_2<-read_excel("unique_19_each_585_new.xlsx", sheet="585_2")
+set_tbl_2[,6:100][set_tbl_2[,6:100 ]==0]<- NA
+evo_set_tbl_2 <-set_tbl_2[,6:24]%>%add_column("cluster"=set_tbl_2$cluster, .before=T)
+evoWT_set_tbl_2<-set_tbl_2[,25:43] %>%add_column("cluster"=set_tbl_2$cluster, .before=T)
+mut_set_tbl_2<-set_tbl_2[,44:62] %>%add_column("cluster"=set_tbl_2$cluster, .before=T)
+unevo_set_tbl_2<-set_tbl_2[,63:81]%>%add_column("cluster"=set_tbl_2$cluster, .before=T)
+WT_set_tbl_2<-set_tbl_2[,82:100] %>%add_column("cluster"=set_tbl_2$cluster, .before=T)
+
+
+WT_set_tbl_1 <-WT_set_tbl_1 %>% tibble::column_to_rownames(var="cluster")%>%data.matrix()%>%t()
+evo_set_tbl_1 <-evo_set_tbl_1 %>% tibble::column_to_rownames(var="cluster")%>%data.matrix()%>%t()
+unevo_set_tbl_1 <-unevo_set_tbl_1 %>% tibble::column_to_rownames(var="cluster")%>%data.matrix()%>%t()
+evoWT_set_tbl_1 <-evoWT_set_tbl_1 %>% tibble::column_to_rownames(var="cluster")%>%data.matrix()%>%t()
+mut_set_tbl_1 <-mut_set_tbl_1 %>% tibble::column_to_rownames(var="cluster")%>%data.matrix()%>%t()
+
+evo_set_tbl_1=log(evo_set_tbl_1)
+evoWT_set_tbl_1=log(evoWT_set_tbl_1)
+unevo_set_tbl_1=log(unevo_set_tbl_1)
+WT_set_tbl_1=log(WT_set_tbl_1)
+mut_set_tbl_1=log(mut_set_tbl_1)
+
+
+WT_set_tbl_2 <-WT_set_tbl_2 %>% tibble::column_to_rownames(var="cluster")%>%data.matrix()%>%t()
+evo_set_tbl_2 <-evo_set_tbl_2 %>% tibble::column_to_rownames(var="cluster")%>%data.matrix()%>%t()
+unevo_set_tbl_2 <-unevo_set_tbl_2 %>% tibble::column_to_rownames(var="cluster")%>%data.matrix()%>%t()
+evoWT_set_tbl_2 <-evoWT_set_tbl_2 %>% tibble::column_to_rownames(var="cluster")%>%data.matrix()%>%t()
+mut_set_tbl_2 <-mut_set_tbl_2 %>% tibble::column_to_rownames(var="cluster")%>%data.matrix()%>%t()
+
+evo_set_tbl_2=log(evo_set_tbl_2)
+evoWT_set_tbl_2=log(evoWT_set_tbl_2)
+unevo_set_tbl_2=log(unevo_set_tbl_2)
+WT_set_tbl_2=log(WT_set_tbl_2)
+mut_set_tbl_2=log(mut_set_tbl_2)
+
+```
+
+1.creating the correlation matrix (pearson). 
+2.converting to long format
+3.filter correlation
+4.create PCLRC netwroks
+5.filter the correlations networks only for edges in the  PCLRC netwroks
+
+585_1
+```{r}
+
+
+results_cor_WT_1 <- rcorr(WT_set_tbl_1,type="pearson")
+results_cor_evo_1 <- rcorr(evo_set_tbl_1,type="pearson")
+results_cor_unevo_1 <- rcorr(unevo_set_tbl_1,type="pearson")
+results_cor_evoWT_1 <- rcorr(evoWT_set_tbl_1,type="pearson")
+results_cor_mut_1 <- rcorr(mut_set_tbl_1,type="pearson")
+
+
+flattenCorrMatrix <- function(cormat, pmat,nmat) {
+  ut <- upper.tri(cormat) 
+  data.frame(
+    M1 = rownames(cormat)[row(cormat)[ut]],
+    M2 = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut],
+    p_adj= p.adjust(pmat[ut], method = "fdr", n = length(pmat[ut])),
+    n=nmat[ut]
+  )}
+
+
+#filter by n and p
+filtering_corr <- function(results_cor, bact_name){
+  df1 <- flattenCorrMatrix(results_cor$r, results_cor$P, results_cor$n)
+  df_positive_p<-df1 %>% filter(cor > 0) 
+  df_negative_p<-df1 %>% filter(cor < 0) 
+  pos_and_neg_p_1 <- mapply(cbind, list(df1,df_positive_p,df_negative_p), "experiment"=bact_name, SIMPLIFY=F)
+
+  return(pos_and_neg_p_1)
+}
+
+WT_pos_and_neg_p_1 <-filtering_corr(results_cor_WT_1, "WT")
+WT_P_r_1 <- WT_pos_and_neg_p_1[[1]]
+WT_positive_p_1<-  WT_pos_and_neg_p_1[[2]]
+WT_negative_p_1<- WT_pos_and_neg_p_1[[3]]
+
+evo_pos_and_neg_p_1 <-filtering_corr(results_cor_evo_1,"evo")
+evo_P_r_1 <- evo_pos_and_neg_p_1[[1]]
+evo_positive_p_1<-  evo_pos_and_neg_p_1[[2]]
+evo_negative_p_1 <- evo_pos_and_neg_p_1[[3]]
+
+unevo_pos_and_neg_p_1 <-filtering_corr(results_cor_unevo_1,"unevo")
+unevo_P_r_1 <- unevo_pos_and_neg_p_1[[1]]
+unevo_positive_p_1<-  unevo_pos_and_neg_p_1[[2]]
+unevo_negative_p_1<- unevo_pos_and_neg_p_1[[3]]
+
+evoWT_pos_and_neg_p_1 <-filtering_corr(results_cor_evoWT_1,"evoWT")
+evoWT_P_r_1 <- evoWT_pos_and_neg_p_1[[1]]
+evoWT_positive_p_1<-  evoWT_pos_and_neg_p_1[[2]]
+evoWT_negative_p_1 <- evoWT_pos_and_neg_p_1[[3]]
+
+mut_pos_and_neg_p_1 <-filtering_corr(results_cor_mut_1,"mut")
+mut_P_r_1 <- mut_pos_and_neg_p_1[[1]]
+mut_positive_p_1<-  mut_pos_and_neg_p_1[[2]]
+mut_negative_p_1 <- mut_pos_and_neg_p_1[[3]]
+
+
+
+#now filter to get direct connections
+
+common_corrs_PCLRC <- function(df1,df2){
+common_1= bind_rows(list(df1, df2)) %>%
+  group_by(M1, M2) %>%filter(n()>1) %>%
+  reframe(cor= cor)%>%drop_na()
+df_2_oppo <- setNames(df2,  c("M2", "M1"))
+common_2= bind_rows(list(df1, df_2_oppo)) %>%
+  group_by(M1, M2) %>%filter(n()>1) %>%
+  reframe(cor=cor)%>%drop_na()
+df_3=rbind(common_1,common_2)
+  return(df_3)}
+
+
+WT_PCLRC_edges_1 <- read_csv("PCLRC_filter/WT_PCLRC_edges_1.csv")[,2:3]
+evo_PCLRC_edges_1 <- read_csv("PCLRC_filter/evo_PCLRC_edges_1.csv")[,2:3]
+unevo_PCLRC_edges_1 <- read_csv("PCLRC_filter/unevo_PCLRC_edges_1.csv")[,2:3]
+evoWT_PCLRC_edges_1 <- read_csv("PCLRC_filter/evoWT_PCLRC_edges_1.csv")[,2:3]
+mut_PCLRC_edges_1 <- read_csv("PCLRC_filter/mut_PCLRC_edges_1.csv")[,2:3]
+
+
+WT_pos_only_PCLRC_1 <- common_corrs_PCLRC(WT_positive_p_1,WT_PCLRC_edges_1)
+WT_neg_only_PCLRC_1 <- common_corrs_PCLRC(WT_negative_p_1,WT_PCLRC_edges_1)
+
+unevo_pos_only_PCLRC_1 <- common_corrs_PCLRC(unevo_positive_p_1,unevo_PCLRC_edges_1)
+unevo_neg_only_PCLRC_1 <- common_corrs_PCLRC(unevo_negative_p_1,unevo_PCLRC_edges_1)
+
+evo_pos_only_PCLRC_1 <- common_corrs_PCLRC(evo_positive_p_1,evo_PCLRC_edges_1)
+evo_neg_only_PCLRC_1 <- common_corrs_PCLRC(evo_negative_p_1,evo_PCLRC_edges_1)
+
+evoWT_pos_only_PCLRC_1 <- common_corrs_PCLRC(evoWT_positive_p_1,evoWT_PCLRC_edges_1)
+evoWT_neg_only_PCLRC_1 <- common_corrs_PCLRC(evoWT_negative_p_1,evoWT_PCLRC_edges_1)
+
+mut_pos_only_PCLRC_1 <- common_corrs_PCLRC(mut_positive_p_1,mut_PCLRC_edges_1)
+mut_neg_only_PCLRC_1 <- common_corrs_PCLRC(mut_negative_p_1,mut_PCLRC_edges_1)
+
+
+
+#write.csv(WT_pos_only_PCLRC_1,"PCLRC_filter/common_WT_pos_PCLRC_585_1.csv")
+#write.csv(WT_neg_only_PCLRC_1,"PCLRC_filter/common_WT_neg_PCLRC_585_1.csv")
+
+#write.csv(evoWT_pos_only_PCLRC_1,"PCLRC_filter/common_evoWT_pos_PCLRC_585_1.csv")
+#write.csv(evoWT_neg_only_PCLRC_1,"PCLRC_filter/common_evoWT_neg_PCLRC_585_1.csv")
+
+#write.csv(evo_pos_only_PCLRC_1,"PCLRC_filter/common_evo_pos_PCLRC_585_1.csv")
+#write.csv(evo_neg_only_PCLRC_1,"PCLRC_filter/common_evo_neg_PCLRC_585_1.csv")
+
+#write.csv(unevo_pos_only_PCLRC_1,"PCLRC_filter/common_unevo_pos_PCLRC_585_1.csv")
+#write.csv(unevo_neg_only_PCLRC_1,"PCLRC_filter/common_unevo_neg_PCLRC_585_1.csv")
+
+#write.csv(mut_pos_only_PCLRC_1,"PCLRC_filter/common_mut_pos_PCLRC_585_1.csv")
+#write.csv(mut_neg_only_PCLRC_1,"PCLRC_filter/common_mut_neg_PCLRC_585_1.csv")
+
+
+
+```
+
+585_2
+```{r}
+
+results_cor_WT_2 <- rcorr(WT_set_tbl_2,type="pearson")
+results_cor_evo_2 <- rcorr(evo_set_tbl_2,type="pearson")
+results_cor_unevo_2 <- rcorr(unevo_set_tbl_2,type="pearson")
+results_cor_evoWT_2 <- rcorr(evoWT_set_tbl_2,type="pearson")
+results_cor_mut_2 <- rcorr(mut_set_tbl_2,type="pearson")
+
+WT_pos_and_neg_p_2 <-filtering_corr(results_cor_WT_2,"WT")
+WT_P_r_2 <- WT_pos_and_neg_p_2[[1]]
+WT_positive_p_2<-  WT_pos_and_neg_p_2[[2]]
+WT_negative_p_2<- WT_pos_and_neg_p_2[[3]]
+
+evo_pos_and_neg_p_2 <-filtering_corr(results_cor_evo_2,"evo")
+evo_P_r_2 <- evo_pos_and_neg_p_2[[1]]
+evo_positive_p_2<-  evo_pos_and_neg_p_2[[2]]
+evo_negative_p_2 <- evo_pos_and_neg_p_2[[3]]
+
+unevo_pos_and_neg_p_2 <-filtering_corr(results_cor_unevo_2,"unevo")
+unevo_P_r_2 <- unevo_pos_and_neg_p_2[[1]]
+unevo_positive_p_2<-  unevo_pos_and_neg_p_2[[2]]
+unevo_negative_p_2<- unevo_pos_and_neg_p_2[[3]]
+
+evoWT_pos_and_neg_p_2 <-filtering_corr(results_cor_evoWT_2,"evoWT")
+evoWT_P_r_2 <- evoWT_pos_and_neg_p_2[[1]]
+evoWT_positive_p_2<-  evoWT_pos_and_neg_p_2[[2]]
+evoWT_negative_p_2 <- evoWT_pos_and_neg_p_2[[3]]
+
+mut_pos_and_neg_p_2 <-filtering_corr(results_cor_mut_2,"mut")
+mut_P_r_2 <- mut_pos_and_neg_p_2[[1]]
+mut_positive_p_2<-  mut_pos_and_neg_p_2[[2]]
+mut_negative_p_2 <- mut_pos_and_neg_p_2[[3]]
+
+
+
+
+#now filter to get only direct connections
+
+WT_PCLRC_edges_2 <- read_csv("PCLRC_filter/WT_PCLRC_edges_2.csv")[,2:3]
+evo_PCLRC_edges_2 <- read_csv("PCLRC_filter/evo_PCLRC_edges_2.csv")[,2:3]
+unevo_PCLRC_edges_2 <- read_csv("PCLRC_filter/unevo_PCLRC_edges_2.csv")[,2:3]
+evoWT_PCLRC_edges_2 <- read_csv("PCLRC_filter/evoWT_PCLRC_edges_2.csv")[,2:3]
+mut_PCLRC_edges_2 <- read_csv("PCLRC_filter/mut_PCLRC_edges_2.csv")[,2:3]
+
+
+
+WT_pos_only_PCLRC_2 <- common_corrs_PCLRC(WT_positive_p_2,WT_PCLRC_edges_2)
+WT_neg_only_PCLRC_2 <- common_corrs_PCLRC(WT_negative_p_2,WT_PCLRC_edges_2)
+
+unevo_pos_only_PCLRC_2 <- common_corrs_PCLRC(unevo_positive_p_2,unevo_PCLRC_edges_2)
+unevo_neg_only_PCLRC_2 <- common_corrs_PCLRC(unevo_negative_p_2,unevo_PCLRC_edges_2)
+
+evo_pos_only_PCLRC_2 <- common_corrs_PCLRC(evo_positive_p_2,evo_PCLRC_edges_2)
+evo_neg_only_PCLRC_2 <- common_corrs_PCLRC(evo_negative_p_2,evo_PCLRC_edges_2)
+
+evoWT_pos_only_PCLRC_2 <- common_corrs_PCLRC(evoWT_positive_p_2,evoWT_PCLRC_edges_2)
+evoWT_neg_only_PCLRC_2 <- common_corrs_PCLRC(evoWT_negative_p_2,evoWT_PCLRC_edges_2)
+
+mut_pos_only_PCLRC_2 <- common_corrs_PCLRC(mut_positive_p_2,mut_PCLRC_edges_2)
+mut_neg_only_PCLRC_2 <- common_corrs_PCLRC(mut_negative_p_2,mut_PCLRC_edges_2)
+
+
+#write.csv(WT_pos_only_PCLRC_2,"PCLRC_filter/common_WT_pos_PCLRC_585_2.csv")
+#write.csv(WT_neg_only_PCLRC_2,"PCLRC_filter/common_WT_neg_PCLRC_585_2.csv")
+
+#write.csv(evoWT_pos_only_PCLRC_2,"PCLRC_filter/common_evoWT_pos_PCLRC_585_2.csv")
+#write.csv(evoWT_neg_only_PCLRC_2,"PCLRC_filter/common_evoWT_neg_PCLRC_585_2.csv")
+
+#write.csv(evo_pos_only_PCLRC_2,"PCLRC_filter/common_evo_pos_PCLRC_585_2.csv")
+#write.csv(evo_neg_only_PCLRC_2,"PCLRC_filter/common_evo_neg_PCLRC_585_2.csv")
+
+#write.csv(unevo_pos_only_PCLRC_2,"PCLRC_filter/common_unevo_pos_PCLRC_585_2.csv")
+#write.csv(unevo_neg_only_PCLRC_2,"PCLRC_filter/common_unevo_neg_PCLRC_585_2.csv")
+
+#write.csv(mut_pos_only_PCLRC_2,"PCLRC_filter/common_mut_pos_PCLRC_585_2.csv")
+#write.csv(mut_neg_only_PCLRC_2,"PCLRC_filter/common_mut_neg_PCLRC_585_2.csv")
+
+
+```
+
+create igraph objects
+```{r}
+create_igraph <- function(df){
+  before_igraph <- df%>% dplyr::select(from=M1, to=M2, weight=cor)
+  igraph <-igraph::graph.data.frame(before_igraph ,directed=F) }
+
+evo_negative_p_igraph_1 <- create_igraph(evo_neg_only_PCLRC_1)
+evo_positive_p_igraph_1 <-create_igraph(evo_pos_only_PCLRC_1) 
+
+unevo_negative_p_igraph_1 <-create_igraph(unevo_neg_only_PCLRC_1) 
+unevo_positive_p_igraph_1 <-create_igraph(unevo_pos_only_PCLRC_1) 
+
+WT_negative_p_igraph_1 <- create_igraph(WT_neg_only_PCLRC_1)
+WT_positive_p_igraph_1 <- create_igraph(WT_pos_only_PCLRC_1)
+
+evoWT_negative_p_igraph_1 <- create_igraph(evoWT_neg_only_PCLRC_1)
+evoWT_positive_p_igraph_1 <-create_igraph(evoWT_pos_only_PCLRC_1) 
+
+mut_negative_p_igraph_1 <- create_igraph(mut_neg_only_PCLRC_1)
+mut_positive_p_igraph_1 <- create_igraph(mut_pos_only_PCLRC_1)
+
+
+evo_negative_p_igraph_2 <- create_igraph(evo_neg_only_PCLRC_2)
+evo_positive_p_igraph_2 <-create_igraph(evo_pos_only_PCLRC_2) 
+
+unevo_negative_p_igraph_2 <-create_igraph(unevo_neg_only_PCLRC_2) 
+unevo_positive_p_igraph_2 <-create_igraph(unevo_pos_only_PCLRC_2) 
+
+WT_negative_p_igraph_2 <- create_igraph(WT_neg_only_PCLRC_2)
+WT_positive_p_igraph_2 <- create_igraph(WT_pos_only_PCLRC_2)
+
+evoWT_negative_p_igraph_2 <- create_igraph(evoWT_neg_only_PCLRC_2)
+evoWT_positive_p_igraph_2 <-create_igraph(evoWT_pos_only_PCLRC_2) 
+
+mut_negative_p_igraph_2 <- create_igraph(mut_neg_only_PCLRC_2)
+mut_positive_p_igraph_2 <- create_igraph(mut_pos_only_PCLRC_2)
+
+
+```
+
+
+intersect between 585_1 and 585_2 data- create the "common" files
+```{r}
+
+#next- find common corrs
+common_corrs <- function(df1,df2){
+  common_1= bind_rows(list(df1, df2)) %>%
+    group_by(M1, M2) %>%filter(n()>1) %>%
+    summarise(cor= sum(cor)/2)
+  df_2_oppo <- setNames(df2,  c("M2", "M1", "cor"))
+  common_2= bind_rows(list(df1, df_2_oppo)) %>%
+    group_by(M1, M2) %>%filter(n()>1) %>%
+    summarise(cor= sum(cor)/2)
+  df_3=rbind(common_1,common_2)
+  return(df_3)}
+
+
+common_WT_pos <- common_corrs(WT_pos_only_PCLRC_1,WT_pos_only_PCLRC_2)
+common_WT_neg <- common_corrs(WT_neg_only_PCLRC_1,WT_neg_only_PCLRC_2)
+
+common_unevo_pos <- common_corrs(unevo_pos_only_PCLRC_1,unevo_pos_only_PCLRC_2)
+common_unevo_neg <- common_corrs(unevo_neg_only_PCLRC_1,unevo_neg_only_PCLRC_2)
+
+common_evo_pos <- common_corrs(evo_pos_only_PCLRC_1,evo_pos_only_PCLRC_2)
+common_evo_neg <- common_corrs(evo_neg_only_PCLRC_1,evo_neg_only_PCLRC_2)
+
+common_evoWT_pos <- common_corrs(evoWT_pos_only_PCLRC_1,evoWT_pos_only_PCLRC_2)
+common_evoWT_neg <- common_corrs(evoWT_neg_only_PCLRC_1,evoWT_neg_only_PCLRC_2)
+
+common_mut_pos <- common_corrs(mut_pos_only_PCLRC_1,mut_pos_only_PCLRC_2)
+common_mut_neg <- common_corrs(mut_neg_only_PCLRC_1,mut_neg_only_PCLRC_2)
+
+
+#write.csv(common_WT_pos,"common/common_WT_pos_PCLRC.csv")
+#write.csv(common_WT_neg,"common/common_WT_neg_PCLRC.csv")
+
+#write.csv(common_evoWT_pos,"common/common_evoWT_pos_PCLRC.csv")
+#write.csv(common_evoWT_neg,"common/common_evoWT_neg_PCLRC.csv")
+
+#write.csv(common_evo_pos,"common/common_evo_pos_PCLRC.csv")
+#write.csv(common_evo_neg,"common/common_evo_neg_PCLRC.csv")
+
+#write.csv(common_unevo_pos,"common/common_unevo_pos_PCLRC.csv")
+#write.csv(common_unevo_neg,"common/common_unevo_neg_PCLRC.csv")
+
+#write.csv(common_mut_pos,"common/common_mut_pos_PCLRC.csv")
+#write.csv(common_mut_neg,"common/common_mut_neg_PCLRC.csv")
+
+
+```
+
+upload "common" files- start from here unless you want to get data on a specific experiment
+```{r}
+#if already did that- can strat from here!
+
+common_WT_pos <- read.csv("common/common_WT_pos_PCLRC.csv",row.names = 1)
+common_WT_neg <- read.csv("common/common_WT_neg_PCLRC.csv",row.names = 1)
+
+common_evoWT_pos <- read.csv("common/common_evoWT_pos_PCLRC.csv",row.names = 1)
+common_evoWT_neg <- read.csv("common/common_evoWT_neg_PCLRC.csv",row.names = 1)
+
+common_evo_pos <- read.csv("common/common_evo_pos_PCLRC.csv",row.names = 1)
+common_evo_neg <- read.csv("common/common_evo_neg_PCLRC.csv",row.names = 1)
+
+common_unevo_pos <- read.csv("common/common_unevo_pos_PCLRC.csv",row.names = 1)
+common_unevo_neg <- read.csv("common/common_unevo_neg_PCLRC.csv",row.names = 1)
+
+common_mut_pos <- read.csv("common/common_mut_pos_PCLRC.csv",row.names = 1)
+common_mut_neg <- read.csv("common/common_mut_neg_PCLRC.csv",row.names = 1)
+
+```
+
+plot common corrs
+
+```{r}
+#positive
+amount_of_corrs_pos <- data.frame(matrix(c(nrow(WT_pos_only_PCLRC_1),nrow(WT_pos_only_PCLRC_2),nrow(common_WT_pos),nrow(unevo_pos_only_PCLRC_1),nrow(unevo_pos_only_PCLRC_2),nrow(common_unevo_pos),nrow(evo_pos_only_PCLRC_1),nrow(evo_pos_only_PCLRC_2),nrow(common_evo_pos),nrow(evoWT_pos_only_PCLRC_1),nrow(evoWT_pos_only_PCLRC_2),nrow(common_evoWT_pos),nrow(mut_pos_only_PCLRC_1),nrow(mut_pos_only_PCLRC_2),nrow(common_mut_pos)), ncol=3, byrow = TRUE),row.names = c("WT","unevolved","evolved","evoWT","mut")) %>%`colnames<-`(c("585_1","585_2","common"))
+
+amount_of_corrs_pos_long <- melt(t(amount_of_corrs_pos))
+
+amount_of_corrs_plot <- ggplot(data=amount_of_corrs_pos_long, aes(x=Var1, y=value, fill=Var1)) +geom_bar(stat="identity", position=position_dodge())+facet_grid(. ~ Var2) +labs(title="Number of Positive Common Correlations ", x="Data Set", y="Count")+scale_fill_brewer(palette="Set2")+  theme(axis.text.x = element_text(angle = 45))
+amount_of_corrs_plot
+
+ggsave(filename="plots_and_tables/plots/amount_of_corrs_pos_PCLRC.pdf", plot = amount_of_corrs_plot, width=6, height=4)
+
+pre_of_common <- 
+data.frame(matrix(c(nrow(common_WT_pos)/nrow(WT_pos_only_PCLRC_1),nrow(common_WT_pos)/nrow(WT_pos_only_PCLRC_2),nrow(common_unevo_pos)/nrow(unevo_pos_only_PCLRC_1),nrow(common_unevo_pos)/nrow(unevo_pos_only_PCLRC_2),nrow(common_evo_pos)/nrow(evo_pos_only_PCLRC_1),nrow(common_evo_pos)/nrow(evo_pos_only_PCLRC_2),nrow(common_evoWT_pos)/nrow(evoWT_pos_only_PCLRC_1),nrow(common_evoWT_pos)/nrow(evoWT_pos_only_PCLRC_2),nrow(common_mut_pos)/nrow(mut_pos_only_PCLRC_1),nrow(common_mut_pos)/nrow(mut_pos_only_PCLRC_2)), ncol=2, byrow = TRUE),row.names = c("WT","unevolved","evolved","evoWT","mut")) %>%`colnames<-`(c("585_1","585_2"))%>% round(digits=2)
+
+pre_of_common
+pdf("plots_and_tables/tables/per_of_common_corrs_pos_PCLRC.pdf")
+p<-tableGrob(pre_of_common)
+grid.arrange(p)
+dev.off()
+
+#negative
+amount_of_corrs_neg <- data.frame(matrix(c(nrow(WT_neg_only_PCLRC_1),nrow(WT_neg_only_PCLRC_2),nrow(common_WT_neg),nrow(unevo_neg_only_PCLRC_1),nrow(unevo_neg_only_PCLRC_2),nrow(common_unevo_neg),nrow(evo_neg_only_PCLRC_1),nrow(evo_neg_only_PCLRC_2),nrow(common_evo_neg),nrow(evoWT_neg_only_PCLRC_1),nrow(evoWT_neg_only_PCLRC_2),nrow(common_evoWT_neg),nrow(mut_neg_only_PCLRC_1),nrow(mut_neg_only_PCLRC_2),nrow(common_mut_neg)), ncol=3, byrow = TRUE),row.names = c("WT","unevolved","evolved","evoWT","mut")) %>%`colnames<-`(c("585_1","585_2","common"))
+
+
+amount_of_corrs_neg_long <- melt(t(amount_of_corrs_neg))
+
+amount_of_corrs_plot <- ggplot(data=amount_of_corrs_neg_long, aes(x=Var1, y=value, fill=Var1)) +geom_bar(stat="identity", position=position_dodge())+facet_grid(. ~ Var2) +labs(title="Number of Negative Common Correlations ", x="Data Set", y="Count")+scale_fill_brewer(palette="Set2")+  theme(axis.text.x = element_text(angle = 45))
+
+amount_of_corrs_plot
+
+ggsave(filename="plots_and_tables/plots/amount_of_common_corrs_neg_PCLRC.pdf", plot = amount_of_corrs_plot, width=6, height=4)
+
+pre_of_common <- 
+data.frame(matrix(c(nrow(common_WT_neg)/nrow(WT_neg_only_PCLRC_1),nrow(common_WT_neg)/nrow(WT_neg_only_PCLRC_2),nrow(common_unevo_neg)/nrow(unevo_neg_only_PCLRC_1),nrow(common_unevo_neg)/nrow(unevo_neg_only_PCLRC_2),nrow(common_evo_neg)/nrow(evo_neg_only_PCLRC_1),nrow(common_evo_neg)/nrow(evo_neg_only_PCLRC_2),nrow(common_evoWT_neg)/nrow(evoWT_neg_only_PCLRC_1),nrow(common_evoWT_neg)/nrow(evoWT_neg_only_PCLRC_2),nrow(common_mut_neg)/nrow(mut_neg_only_PCLRC_1),nrow(common_mut_neg)/nrow(mut_neg_only_PCLRC_2)), ncol=2, byrow = TRUE),row.names = c("WT","unevolved","evolved","evoWT","mut")) %>%`colnames<-`(c("585_1","585_2"))%>% round(digits=2)
+
+pre_of_common
+pdf("plots_and_tables/tables/per_of_common_corrs_neg_PCLRC.pdf")
+p<-tableGrob(pre_of_common)
+grid.arrange(p)
+dev.off()
+
+
+
+#plots of only common
+#pos
+
+only_common_pos <- data.frame(matrix(c(nrow(common_WT_pos),nrow(common_unevo_pos),nrow(common_evo_pos),nrow(common_evoWT_pos),nrow(common_mut_pos)), ncol=1, byrow = TRUE),row.names = c("WT","unevolved","evolved","evoWT","mut")) %>%`colnames<-`(c("common"))
+
+d <- only_common_pos
+d$bact=row.names(d)
+amount_of_common_plot <-  ggplot(data=d,aes(x=factor(bact, levels=c("WT","unevolved","evolved","evoWT","mut"),labels=c("WT","unevolved","evolved","evoWT","mut")), y=common, fill=bact))+ geom_bar(stat="identity", position=position_dodge(),width = 0.7, color="black") +labs(title="Number of positive correlations\n", x="\nBacterial Strain", y="Count\n")+theme_minimal(base_size = 18)+theme(axis.text.x = element_text(face="bold"),legend.position="none") +scale_fill_manual(values=c(WT="coral", unevolved="#339900",evolved="cornflowerblue","evoWT"="#d11141","mut"="#9999CC"))+scale_y_continuous(labels = scales::comma) 
+amount_of_common_plot
+
+ggsave(filename="plots_and_tables/plots/amount_of_common_corrs_pos.pdf", plot = amount_of_common_plot, width=8, height=4)
+
+
+
+#neg
+only_common_neg <- data.frame(matrix(c(nrow(common_WT_neg),nrow(common_unevo_neg),nrow(common_evo_neg),nrow(common_evoWT_neg),nrow(common_mut_neg)), ncol=1, byrow = TRUE),row.names = c("WT","unevolved","evolved","evoWT","mut")) %>%`colnames<-`(c("common"))
+
+d <- only_common_neg
+d$bact=row.names(d)
+amount_of_common_plot <-  ggplot(data=d,aes(x=factor(bact, levels=c("WT","unevolved","evolved","evoWT","mut"),labels=c("WT","unevolved","evolved","evoWT","mut")), y=common, fill=bact))+ geom_bar(stat="identity", position=position_dodge(),width = 0.7, color="black") +labs(title="Number of negative correlations\n", x="\nBacterial Strain", y="Count\n")+theme_minimal(base_size = 18)+theme(axis.text.x = element_text(face="bold"),legend.position="none") +scale_fill_manual(values=c(WT="coral", unevolved="#339900",evolved="cornflowerblue","evoWT"="#d11141","mut"="#9999CC"))+scale_y_continuous(labels = scales::comma) 
+amount_of_common_plot
+
+
+
+ggsave(filename="plots_and_tables/plots/amount_of_common_corrs_neg.pdf", plot = amount_of_common_plot, width=8, height=4)
+
+
+#pos+neg
+
+only_common_pos_neg <- data.frame(matrix(c(nrow(common_WT_neg)+nrow(common_WT_pos),nrow(common_unevo_neg)+nrow(common_unevo_pos),nrow(common_evo_neg)+nrow(common_evo_pos),nrow(common_evoWT_neg)+nrow(common_evoWT_pos),nrow(common_mut_neg)+nrow(common_mut_pos)), ncol=1, byrow = TRUE),row.names = c("WT","unevolved","evolved","evoWT","mut")) %>%`colnames<-`(c("common"))
+
+d <- only_common_pos_neg 
+d$bact=row.names(d)
+amount_of_common_plot <-  ggplot(data=d,aes(x=factor(bact, levels=c("WT","unevolved","evolved","evoWT","mut"),labels=c("WT","unevolved","evolved","evoWT","mut")), y=common, fill=bact))+ geom_bar(stat="identity", position=position_dodge(),width = 0.7, color="black") +labs(title="Number of correlations (poisitve and negative )\n", x="\nBacterial Strain", y="Count\n")+theme_minimal(base_size = 18)+theme(axis.text.x = element_text(face="bold"),legend.position="none") +scale_fill_manual(values=c(WT="coral", unevolved="#339900",evolved="cornflowerblue","evoWT"="#d11141","mut"="#9999CC"))+scale_y_continuous(labels = scales::comma) 
+amount_of_common_plot
+
+
+ggsave(filename="plots_and_tables/plots/amount_of_common_corrs_pos_and_neg.pdf", plot = amount_of_common_plot, width=8, height=4)
+
+
+
+```
+
