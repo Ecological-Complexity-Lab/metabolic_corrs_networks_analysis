@@ -48,6 +48,9 @@ The script requires the following R packages, with the used versions specified:
 * magrittr - 2.0.3
 * combinat - 0.0-8
 * khroma - 1.12.0
+* grid - 4.2.1
+* gridExtra - 2.3
+* ggpubr - 0.6.0
 * Infomap (MacOS version): Version 1.7.1
 
 Ensure these packages are installed and loaded before running the script.
